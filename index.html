@@ -1,0 +1,1459 @@
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workout Tracker</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='10' width='64' height='64' fill='%2322c55e'/%3E%3Cpath d='M20 18v10H8v8h12v10h8V36h8v10h8V36h12v-8H44V18h-8v10h-8V18z' fill='white'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #0b0f12;
+      --bg-elev: #0f141a;
+      --card: #12181f;
+      --ring: #283241;
+      --text: #e7edf2;
+      --muted: #9fb0be;
+      --accent: #22c55e;
+      --btn-primary-text: #05170f;   /* blackish on green */
+      --danger: #ff5c5c;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --shadow-soft: 0 2px 10px rgba(0,0,0,.25);
+      --outline: 2px solid var(--accent);
+    }
+    .theme-light {
+      --bg: #f6f7f9;
+      --bg-elev: #ffffff;
+      --card: #ffffff;
+      --ring: #d9e0e8;
+      --text: #0f141a;
+      --muted: #5f6b76;
+      --accent: #2164f4;
+      --btn-primary-text: #ffffff;      /* white on green */
+      --danger: #ff5c5c;
+      --shadow: 0 8px 22px rgba(0,0,0,.08);
+      --shadow-soft: 0 2px 6px rgba(0,0,0,.08);
+      --outline: 2px solid rgba(37, 27, 231, 0.641);
+    }
+
+    html,body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .app { max-width: 980px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+    header.topbar {
+      position: sticky; top: 0; z-index: 10;
+      background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,0)) , var(--bg);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--ring);
+    }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .spread { justify-content: space-between; }
+    .tabs { display: inline-flex; gap: 8px; padding: 12px; }
+    .tab {
+      padding: 10px 14px; border-radius: 12px;
+      border: 1px solid var(--ring); background: var(--card);
+      box-shadow: var(--shadow-soft); cursor: pointer; user-select: none;
+    }
+    .tab.active { outline: var(--outline); outline-offset: 0; }
+    .gear-btn {
+      margin-right: 12px; width: 40px; height: 40px; border-radius: 12px;
+      border: 1px solid var(--ring); background: var(--card);
+      display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-soft);
+      color: var(--text); /* makes SVG lines follow theme text color */
+    }
+    .content { padding: 16px; flex: 1; }
+    .card {
+      background: var(--card); border: 1px solid var(--ring);
+      border-radius: 16px; box-shadow: var(--shadow); padding: 14px;
+    }
+    .btn { border: none; cursor: pointer; user-select: none; padding: 12px 16px; border-radius: 12px; font-weight: 600; }
+    .btn.primary {
+      background: var(--accent);
+      color: var(--btn-primary-text);
+    }
+    .btn.ghost { background: var(--bg-elev); color: var(--text); border: 1px solid var(--ring); }
+    .btn.warn { background: var(--danger); color: #fff; }
+    .btn.icon { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 10px; }
+    .muted { color: var(--muted); }
+    .grid { display: grid; gap: 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    .list { display: grid; gap: 10px; }
+
+    input, select, textarea {
+      background: var(--bg-elev); color: var(--text);
+      border: 1px solid var(--ring); border-radius: 12px;
+      padding: 10px 12px; font: inherit;
+    }
+    input[type=number] { -moz-appearance: textfield; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    label { font-size: 12px; color: var(--muted); }
+    .exercise-card { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: start; }
+    .exercise-img {
+      width: 64px; height: 64px; border-radius: 12px;
+      border: 1px solid var(--ring); background: var(--bg-elev);
+      display: grid; place-items: center; overflow: hidden;
+    }
+    .exercise-actions { display: flex; gap: 8px; }
+    /* === Set rows (updated) === */
+    .sets { display: grid; gap: 8px; margin-top: 8px; }
+
+    /* 3 columns: [Set#] [spacer] [right-aligned inputs] */
+    .set-row {
+      display: grid;
+      grid-template-columns: 84px 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* bigger, clearer Set# */
+    .set-label {
+      font-weight: 700;
+      text-align: center;
+      border: 1px dashed var(--ring);
+      border-radius: 10px;
+      padding: 10px 0;
+      min-width: 84px;
+    }
+
+    /* right side holds weight + reps, tight inline */
+    .set-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .set-right .field {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .set-right input[type="number"] {
+      width: 64px;           /* weight a bit wider */
+      text-align: center;
+    }
+
+    .set-right input.reps {
+      width: 44px;           /* reps narrower */
+      text-align: center;
+    }
+
+    label { font-size: 12px; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); }
+    /*.sets { display: grid; gap: 8px; margin-top: 8px; }
+    .set-row { display: grid; gap: 8px; align-items: center; grid-template-columns: 64px 1fr 1fr; }
+    .set-row { display:flex; align-items:center; gap:12px; }
+    .set-row .field { display:flex; align-items:center; gap:6px; }
+    .set-row input { width:50px; text-align:center; }
+    .set-row input.reps { width:30px; }
+
+    .set-label { font-weight: 600; text-align: center; border: 1px dashed var(--ring); border-radius: 10px; padding: 12px 0; }
+    .small { font-size: 12px; color: var(--muted); }
+    */
+    
+    .bar-bottom {
+      position: sticky; bottom: 0; z-index: 5; padding: 12px;
+      background: linear-gradient(0deg, rgba(0,0,0,.6), rgba(0,0,0,0));
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .pill { border: 1px solid var(--ring); border-radius: 999px; padding: 4px 10px; color: var(--muted); font-size: 12px; }
+
+    .overlay { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.5); }
+    .overlay.show { display: grid; }
+    .modal { width: min(560px, 92vw); background: var(--card); border: 1px solid var(--ring); border-radius: 16px; box-shadow: var(--shadow); padding: 16px; }
+
+    /* Single-field modal layout */
+    .modal .input-with-btn { position: relative; }
+    .modal .input-with-btn input { width:100%; box-sizing:border-box; padding-right:90px; }
+    .modal .input-with-btn .inline-btn {
+      position:absolute; right:6px; top:50%; transform:translateY(-50%);
+      padding:8px 12px; border-radius:10px; border:1px solid var(--ring);
+      background: var(--accent); color: var(--text); cursor:pointer;
+    }
+    .modal input::placeholder { color: var(--muted); }
+
+    /* make modal overlay sit above everything */
+    .overlay { 
+      position: fixed; 
+      inset: 0; 
+      display: none; 
+      place-items: center; 
+      background: rgba(0,0,0,.5); 
+      z-index: 2000;              /* NEW */
+    }
+    .overlay.show { display: grid; }
+
+    /* (optional) ensure the card is above the overlay gradient layers */
+    .modal { 
+      position: relative;         /* NEW */
+      z-index: 2001;              /* NEW */
+    }
+    /* Make modals fit on screen and scroll internally */
+    .modal{
+      max-height: 85vh;              /* cap height to viewport */
+      display: flex;                 /* stack body + footer vertically */
+      flex-direction: column;
+      overflow: hidden;              /* clip overflow to modal window */
+    }
+    #modalBody{
+      overflow: auto;                /* scroll the content */
+      max-height: calc(85vh - 56px);
+    }
+
+    .slide-over {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(480px, 92vw);
+      height: 100%;
+      background: var(--card);
+      border-left: 1px solid var(--ring);
+      box-shadow: var(--shadow);
+      transform: translateX(110%);   /* push it off screen */
+      transition: transform .25s ease;
+      z-index: 20;
+      overflow: auto;
+      padding: 16px;
+      pointer-events: none;
+      visibility: hidden;
+    }
+    .slide-over.show {
+      transform: translateX(0%);     /* slide it in */
+      pointer-events: auto;
+      visibility: visible;
+    }
+
+    /* Exercise picker row styling */
+    .ex-option { 
+      display: grid; 
+      grid-template-columns: 40px 1fr auto; 
+      gap: 10px; 
+      align-items: center; 
+    }
+    .ex-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--ring); background: var(--bg-elev);
+      display: grid; place-items: center; overflow: hidden;
+    }
+    .ex-name { font-weight: 700; }
+    .ex-type { font-size: 12px; color: var(--muted); margin-left: 6px; }
+
+    .settings-pop {
+      position: absolute; top: 56px; right: 12px; width: 270px;
+      background: var(--card); border: 1px solid var(--ring); border-radius: 14px; box-shadow: var(--shadow);
+      display: none; padding: 10px;
+    }
+    .settings-pop.show { display: block; }
+    .rowy { display: flex; align-items: center; gap: 10px; }
+    .sep { height: 1px; background: var(--ring); margin: 8px 0; }
+    .hidden { display: none !important; }
+
+    /* --- Sliding switches (replaces segmented toggles) --- */
+    .field-label { display:block; margin:10px 0 6px; font-weight:600; }
+
+    .switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .switch input { display: none; }
+
+    .slider {
+      width: 42px; height: 24px; border-radius: 999px;
+      background: var(--ring);
+      position: relative; transition: background 160ms ease;
+      box-shadow: inset 0 0 0 1px var(--ring);
+    }
+    .slider::before {
+      content: ""; position: absolute; top: 3px; left: 3px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--card);
+      transition: transform 160ms ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,.25);
+    }
+    .switch input:checked + .slider {
+      background: var(--accent);
+    }
+    .switch input:checked + .slider::before {
+      transform: translateX(18px);
+    }
+
+    /* Toggle switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background-color: #ccc; transition: .4s; border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px;
+      left: 3px; bottom: 3px; background: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    /* on/off text */
+    .switch .switch-text { font-size: 12px; color: var(--muted); display: inline-flex; gap: 6px; }
+    .switch input:not(:checked) ~ .switch-text .off { color: var(--text); font-weight: 600; }
+    .switch input:checked        ~ .switch-text .on  { color: var(--text); font-weight: 600; }
+
+    canvas.chart { width: 100%; height: 220px; background: var(--bg-elev); border: 1px solid var(--ring); border-radius: 12px; }
+
+  </style>
+</head>
+<body class="theme-light">
+  <div class="app">
+    <header class="topbar">
+      <div class="row spread">
+        <div class="tabs" role="tablist" aria-label="Main Tabs">
+          <div class="tab active" data-tab="workouts" role="tab" aria-selected="true">Workouts</div>
+          <div class="tab" data-tab="body" role="tab" aria-selected="false">Body</div>
+          <div class="tab" data-tab="progress" role="tab" aria-selected="false">Progress</div>
+          <div class="tab hidden" data-tab="activeWorkout">Active Workout</div>
+        </div>
+        <button id="gearBtn" class="gear-btn" aria-label="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09c.7 0 1.31-.39 1.51-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06c.46.46 1.12.61 1.82.33h0A1.65 1.65 0 0 0 9 4.09V4a2 2 0 1 1 4 0v.09c0 .7.39 1.31 1 1.51.7.28 1.36.13 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.46.46-.61 1.12-.33 1.82v0c.28.7.81 1.36 1.51 1.36H21a2 2 0 1 1 0 4h-.09c-.7 0-1.23.66-1.51 1.36z"/>
+          </svg>
+        </button>
+      </div>
+      <div id="settingsPop" class="settings-pop">
+        <div class="rowy">
+          <button class="btn ghost" id="uploadBtn">Upload Data</button>
+          <input type="file" id="fileInput" accept="application/json" class="hidden">
+        </div>
+        <div style="height:6px"></div>
+        <button class="btn primary" id="saveBtn">Save Data</button>
+        <div class="sep"></div>
+
+        <!-- Units toggle -->
+        <div class="rowy">
+          <label style="min-width:80px">Units</label>
+          <label class="switch">
+            <input type="checkbox" id="unitSwitch">
+            <span class="slider"></span>
+          </label>
+          <span class="small muted" id="unitLabel">lb</span>
+        </div>
+
+        <!-- Theme toggle -->
+        <div class="rowy" style="margin-top:6px">
+          <label style="min-width:80px">Theme</label>
+          <label class="switch">
+            <input type="checkbox" id="themeSwitch">
+            <span class="slider"></span>
+          </label>
+          <span class="small muted" id="themeLabel">Dark</span>
+        </div>
+
+        <div class="sep"></div>
+        <button class="btn ghost" id="manageExercisesBtn">Manage Exercises</button>
+        <div class="sep"></div>
+        <div class="small muted" id="loadedInfo">No file loaded yet.</div>
+      </div>
+    </header>
+
+
+
+<main class="content">
+  <!-- WORKOUTS -->
+  <section id="tab-workouts" class="grid">
+    <div class="card grid" id="workoutsHome">
+      <div class="row-between">
+        <div>
+          <h2 style="margin:6px 0 2px 0">Workouts</h2>
+          <div class="small muted">Start a workout or view recent ones.</div>
+        </div>
+        <button class="btn primary" id="addWorkoutBtn">╋ Add Workout</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div id="recentWorkouts" class="list"></div>
+  </section>
+
+  <!-- ACTIVE WORKOUT -->
+  <section id="tab-activeWorkout" class="hidden grid">
+    <div class="card">
+      <div class="row-between">
+        <div>
+          <div id="awName" style="font-weight:700; font-size:18px;"></div>
+          <div class="small muted" id="awSub"></div>
+        </div>
+        <div class="row-between" style="gap:8px">
+          <button class="btn warn" id="cancelWorkoutBtn">Cancel</button>
+          <button class="btn primary" id="finishWorkoutBtn">Finish</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="exerciseCards" class="list"></div>
+
+    <div class="bar-bottom">
+      <button class="btn ghost" id="addExerciseBtn">+ Add Exercise</button>
+    </div>
+  </section>
+
+
+
+  <!-- BODY -->
+  <section id="tab-body" class="grid hidden">
+    <div class="card grid2">
+      <div class="card" style="display:grid; place-items:center;">
+        <!-- Simple inline body silhouette -->
+        <svg width="160" height="260" viewBox="0 0 160 260" fill="none" aria-hidden="true">
+          <rect x="56" y="20" width="48" height="50" rx="24" fill="var(--ring)"/>
+          <rect x="44" y="70" width="72" height="90" rx="28" fill="var(--ring)"/>
+          <rect x="28" y="140" width="40" height="90" rx="16" fill="var(--ring)"/>
+          <rect x="92" y="140" width="40" height="90" rx="16" fill="var(--ring)"/>
+          <rect x="40" y="220" width="80" height="30" rx="14" fill="var(--ring)"/>
+        </svg>
+        <div class="small muted">Tap Update Metrics to snapshot current values.</div>
+      </div>
+      <div class="grid">
+        <div class="grid3">
+          <div><label>Weight</label><input id="bmWeight" type="number" inputmode="decimal" placeholder="lb/kg"></div>
+          <div><label>Arm</label><input id="bmArm" type="number" inputmode="decimal" placeholder="in/cm"></div>
+          <div><label>Waist</label><input id="bmWaist" type="number" inputmode="decimal" placeholder="in/cm"></div>
+        </div>
+        <div class="grid3">
+          <div><label>Thigh</label><input id="bmThigh" type="number" inputmode="decimal"></div>
+          <div><label>Calf</label><input id="bmCalf" type="number" inputmode="decimal"></div>
+          <div><label>Notes</label><input id="bmNotes" type="text" placeholder="optional"></div>
+        </div>
+        <div class="row" style="justify-content:flex-end;">
+          <button class="btn primary" id="bmUpdateBtn">Update Metrics</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin:6px 0 12px 0;">Past Metrics</h3>
+      <div id="bmList" class="list"></div>
+    </div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section id="tab-progress" class="grid hidden">
+    <div class="card grid">
+      <div class="grid2">
+        <div>
+          <label>Category</label>
+          <select id="progCat">
+            <option value="workouts">Workouts</option>
+            <option value="body">Body Metrics</option>
+          </select>
+        </div>
+        <div id="progExerciseWrap">
+          <label>Exercise</label>
+          <select id="progExercise"></select>
+        </div>
+      </div>
+    </div>
+    <div id="progressCharts" class="grid"></div>
+  </section>
+</main>
+
+  </div>
+
+  <!-- MODALS & PANELS -->
+
+  <div id="modalOverlay" class="overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div id="modalBody"></div>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px">
+        <button class="btn ghost" id="modalCancel">Cancel</button>
+        <button class="btn primary" id="modalOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <aside id="slideOver" class="slide-over">
+    <div class="row-between">
+      <h3 style="margin:0">Exercise Progress</h3>
+      <button class="btn icon" id="slideClose" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="small muted" id="slideTitle" style="margin:8px 0 12px 0"></div>
+    <div id="slideCharts" class="grid"></div>
+  </aside>
+
+  <!-- MANAGE EXERCISES PANEL -->
+
+  <div id="manageOverlay" class="overlay">
+    <div class="modal">
+      <div class="row-between">
+        <h3 style="margin:0">Manage Exercises</h3>
+        <button class="btn icon" id="meClose" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="grid" style="margin-top:10px">
+        <div class="row" style="gap:8px">
+          <input id="meSearch" placeholder="Search exercises..." style="flex:1">
+          <button class="btn primary" id="meAdd">Add New</button>
+        </div>
+        <div id="meList" class="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== UTILITIES =====
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const fmtDate = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString(); } catch { return ''; } };
+    const pad2 = n => String(n).padStart(2, '0');
+    const nowISO = () => new Date().toISOString();
+    const todayLabel = () => { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); };
+    const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    const deepCopy = (o) => JSON.parse(JSON.stringify(o));
+    const kgToLb = kg => kg * 2.2046226218;
+    const lbToKg = lb => lb / 2.2046226218;
+    const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+    const escapeHtml = (s='') =>
+      s.replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+
+    
+    const DEFAULT_EXS = [
+      {
+        id: 'flat-bench-press',
+        name: 'Flat Bench Press',
+        type: 'Push',
+        image: 'data:image/jpeg;base64,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',
+        description: 'Flat barbell bench press', note_global: ''
+      },
+      {
+        id: 'incline-bench-press',
+        name: 'Incline Bench Press',
+        type: 'Push',
+        image: 'data:image/png;base64,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',
+        description: 'Incline barbell bench press', note_global: ''
+      },
+      {
+        id: 'dumbbell-shoulder-press',
+        name: 'Dumbbell Shoulder Press',
+        type: 'Push',
+        image: 'data:image/png;base64,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',
+        description: 'Seated dumbbell press', note_global: ''
+      },
+      {
+        id: 'overhead-tricep-extension',
+        name: 'Overhead Tricep Extension',
+        type: 'Push',
+        image: 'data:image/png;base64,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',
+        description: 'Overhead dumbbell tricep extension', note_global: ''
+      },
+      {
+        id: 'tricep-kickback',
+        name: 'Tricep Kickback',
+        type: 'Push',
+        image: 'data:image/png;base64,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',
+        description: 'Dumbbell tricep kickback', note_global: ''
+      },
+      {
+        id: 'bent-over-row',
+        name: 'Bent-Over Row',
+        type: 'Pull',
+        image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAADhCAMAAAAJbSJIAAAAflBMVEX///8AAAD39/f8/PwEBAT4+Pj09PRfX1+wsLAgICDn5+fx8fG4uLgmJibX19fd3d0bGxvl5eXCwsKcnJzJycmJiYlYWFjQ0NAVFRUODg6rq6uUlJRsbGxlZWUoKCg9PT1ISEh8fHyioqIyMjJPT0+CgoJBQUE3NzePj491dXX5ELd2AAALwklEQVR4nO1diXajOhJFCLAxZrHxAt6NHcf5/x8cqUoCCUhPptsnRozuea87FqSPbqpUm0qK41hYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFiYC/ruCVj8C5j4guX+cPzKV+OUJHWSCZH4Skeor/SLMfM8yfFjZAypMwuJjtPi3ZN6LaKyRZAJM333pF4H6tATkiKHapofxddkRseiqtT5QEq5D5+DJ0rxPB5zk6KN2dYeP0ExPt87rRfiAHxWysgCV2P0tim9FhFI7Knp5Ar0dixCnIK8fH3wAIMjiVSBzLU1uIC1uXzLhF6OgjNscaHOhuvp+j0zejVgyc30Mers+PDlHfN5OQJYcZ31lvLRcBTLMBI2pXfYfcOEXg7aL0MUbfCOGb0cQKUTZ0f9xI3EmVOZtkcXYIAmW/616Tw/OMONPkZFHMA95dJ4VV0BkZa7cCZchiLn31Rm58MU0t+DrouzVkp8nvoGa+saQm89qjl0cn6yNjbVoBEySBxfCAlXoUc+5neN52FmphypkyOBJkOcYtmNCW02PaocP0y1Ohdk9IXmZnZExazE09W1JLXVmTtGlm/qWttjvV8/CJrRu9PkjEulXGwiQerMSqUcLKwn1dbcbC0f3Fbf/kNDRvRouYduSBqshXDJPTHS4OylV8A/shYJvvpmG/n40A4QjED0zBQRXvpeSZrnOTVOjlxI6XS/fk4rsDl979Tukckx3v72DF+HFKxOR0RURLC15zgEjt/7DwwemBMn3QcXTi0LckmzNNOqMnyC3+tEaHMQ3o6t2IPca3watxgREyHE1uwLYWPZ8PYmPMfETD09oA62KhtPWH5zB2Wbgxg9cjKyWPUlAzSVY0p0E7v4xJdOJiZVH7XBPK2X0rcjoZozpeI1cn7TLP8FeSuAy5leroGxvr0xxR9Ee8/DAMxJE4XDVxO6BeNZaouOOkt8wTzfv+Wsysa1ExKW/VSW8Nrl96f4j8Bq8KK6abrqkXXbf1DnCQ/MMzYFnzYLWBa7w61R1s+eNzH+MS/TgDLGFSVGd7UU7/NO0kghDDCvnLoDoUmVTLPG5tx3OknqmSlDXIjNXkalrseNysfYLSpI5mMpROpEV8V7qDoJfSneO6b4j8Buk1wZifJCaqpqUOeGWhrHeQCdWlqcFF1hqb9Q38MdgdjADAOcPski3QNC9H1qPlPnJKysceV+yvILcIG6cKASFSoDM7k4r6YxFI7OI2GqSgf73Zp3uJHliTCLWXPjpFhXDp+KK0AvosRon40TmRvHECtrsGHTBNyhCOcEcLUe0MSal2FAboS4zYUOHmFbsZYWuM1PuZ1qoM9Ixa4a++80hxFYd6FkmMrQ54I/hzdO9W/hX5sU8ZxAPx/XSvkYuhlKZm5dzECO5i1FJiZZlWJcrq5L1B3/LYxC4CMUuvrDvzRM8NLoKm7s5UTzFhj38B2auuxh3mEbmoeNngrTKgtPGJJyEa7rbbmbaQyb5FcB+nbqwoeMhQFnwZ3XqvbvnvL/hOjeR9AjG6i44QJd4s4qt6S3vlbcQQNOXQgNfWw2QlI8QitSdPYemWxPQoB3X7j/d0/751jJhXeZolzoojrLRZk4BUbmUrK8I/xLGBtDIMPSDc5Y7Gkn6NtJiZGaJ4UMgRxGraZUwCNBsHMeYarZVpTyl8ix9vDIkM0olFW8aHdAUQzlVNy2KGEqfiwmHNKgwk3EveJQDitykandxQdTNmooxckv+vw3FQE3Yu+q70AQ0FcaHxxy/UwQ1f5SAoFnq1DaqgEMFxSK3JuGUrK/XvO0YYqrdN/dkIFxA0zNSjg2eeBSeL1LPbL6LnyB9wzYiYLt64v8NG9WXV2/gHwj73SaYqxqQPEUjq7vxIektpqkKeizhVrGR8dvKWRqyDpU9wRpU07jJO9CTxntW0bcgOoUIRy4/PJ0/wKJKgn8kFV5CfZVCNElxa3IZjTSGV75ux+/O9sfQltQkCTIxhlIjvgpvaBUdfeUnU4k8SNf+854sDGN76oTXaq+AsRS8eAN2qBlhnv2bqW3dSPNqkSKeg8MQaBqW5dhXjPkrXo+E9yDMBmunEj5yfDmE953+rtT/yEiV2UotBQnD91DZSDjlR2vXwSUm9vQS1vuArzM1y/O+2dgE/ZBhhT+cF0fjQv7is8/IWFGvNNzjeZ04bs+eyUihfAdbuCyN1HLwyIsyPy9dLpgvIKAy5BNNfDZZBlbNvmCpD6XlUPvpIhZFIfdCgeHsXF9f0ViryyYCAP+bWyEv5qS0suGtww5QS5DLgiXfWIf2SLzYrJj03bZmksZuSIOSx4GlDNGx2d2aV+EsFR9/l2Ucwx4yT88kcvQ6omoYUyGXPe4zjG+dE2yIjxz8tT1KTM8MclK7gkSbmSYbLGZtqJc5BSEyn469JwV2fDKiXxZOciQKRqTRsT+3jJCIUmoz6cfOClUFUsymfmBDyt1TuKTR1KX+szl858R0wKmpGHs9bWHvxdUWArQNrYo+WJk/rwoYhahMbJcYCznrZ7P3Qwe85Xr30gYkgcNgJkvGD5JXGQ39twflp6yRegGQteYloKppBUzJDGZUmQILBnApPAKQM5UVjyWDNn//Hu8iilEFA2KIkWKME8HFlbArWkRMrOYgm1ljyKHr09mZALu2HmvaVjGIGLOELTA3/HvITOfRsGwGApbw/+CT0xOjNSclEwPQ66YPjhK2rg9liKFYcnCTxgWj13/xJZqcWAOxI2MaALbgH8venbLRKlYr97Lc7XbofmK7+GKkuFOG2V6jP0lLNto1VGJVhcYPpqS4UM7+bOUDbWzlrCw0d2sU0KJLF3E+wQWVrDdFzLfn/aklF77YobBQ5TvgWZ8PmdKuYa3C2vvxvCsnWsMHu6xvQsjTgIh1s0+Gp5oN+/OJZbSFuRPOFeYSDxhk83QC4mmZ9mbh6J7zCM4gCA3h2/7+RxPJJizNdrG4lTL7J4Di6DKdFkC28ocV6gBYjQ2/0mSygIqx/KumB3YCR5e8eKHoMyKiCsydMz2N1WIk3dM7jUIQFZ97Vz01ojRNE+oAvdleh4kHqrnbXNcD6769L8AKoSHrhWpRLPNET6Z5upVPESQpoI6kbw/YgQXgIJjaBdf6u5hA5u728CsSLekwVEY0Ni8M2tdBF2Gdc/Q0bzLP3rQw/AqWr344hwBw54zorQEGRobhrbROmFRb6JpB9uMxgSjag3YWWuyD1QBF7Tf9TG80XzX/w3GYdtdiOKgxWkcMqQOyKuVGyFtAw869UD+WoFWVCPv6BkBqDhEedGHsTtxHGoqj/rqCRIGAoPsnPkLYIFfv9YEj+kZeDS2H5gE65dewa1Y7Xv5zAXeqaj1RIvrT943p9ci6RSbxDF1o6sXGq7dnSWobgyzDfFvgKbzpA7B4uy9XNFM7EBP1XQihWL/2yb0eny2M+GgL141GXjmV928j/nI4PqD/hqyuK8E25dxGVN5x4dy5B6uGRhLjgjAi/gaStBwOppShsPr9rhpWHcD7TGUGxOw0F2fvcvH5fIBsFdRVxFzje84sNBy4RzT/LFkF4h1fQutI5TWxOtM/gQsgJcotsW48icBbEAUuXA8PmPqyCPePBql4mz6KPafFKTYegJfY5RjahvNN6DiZgjMhbHLdlQEHVmfyWBXRrljaEyolFz43k4ax4Gb6JGi8thvTyuKyaCiHRhp4fX049ihkaDS2EB2P4O2oZFss9VIsNcEb7+oyOjc/nYie03uH+v118bYKxP7wH+tRe/dWO1isbng/Lz2L74SML7oxu/eOyOXFkNxVZT5RbfluSGXb6/tm5SMZ7hsbtf3KvAN0WpX5Xk1XS0wsjGboX+vxVfuutnSw3yGd7n8ss7v1OU4G89Q3sATt49zCXwazxDTQLhmt7eV7WY8Qzx7//1z8xlCNf86n36DeWg8Q3mT8B9hdGS6/QlDsxOoK+nEam30uhGD8PHfJJgbX8iY5YfJtzjuR9Sv8P8K0zXUwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLC4j9NkHMgVJRHPwAAAABJRU5ErkJggg==',
+        description: 'Barbell bent-over row', note_global: ''
+      },
+      {
+        id: 'dumbbell-bicep-curl',
+        name: 'Dumbbell Bicep Curl',
+        type: 'Pull',
+        image: 'data:image/png;base64,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',
+        description: 'Standing dumbbell curl', note_global: ''
+      },
+      {
+        id: 'dumbbell-preacher-curl',
+        name: 'Dumbbell Preacher Curl',
+        type: 'Pull',
+        image: 'data:image/png;base64,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',
+        description: 'Seated preacher dumbbell curl', note_global: ''
+      },
+      {
+        id: 'side-delt-raise',
+        name: 'Side Delt Raise',
+        type: 'Push',
+        image: 'data:image/jpeg;base64,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',
+        description: 'Dumbbell lateral raise', note_global: ''
+      },
+      {
+        id: 'dumbbell-row',
+        name: 'Dumbbell Row',
+        type: 'Pull',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPAfwjxCugMrJM1xTqM5_yNGT39N5340SubQ&s',
+        description: 'One-arm dumbbell row', note_global: ''
+      }
+    ];
+
+
+
+    const state = {
+      settings: { units: 'lb', theme: 'light' },
+      exercises: deepCopy(DEFAULT_EXS),
+      workouts: [],
+      body_metrics: [],
+      activeWorkoutId: null,
+      lastLoadedFile: null,
+    };
+
+    // Load local settings/theme if present
+    try {
+      const saved = localStorage.getItem('wt_state');
+      if (saved) {
+        const obj = JSON.parse(saved);
+        if (obj.settings) state.settings = { ...state.settings, ...obj.settings };
+        if (Array.isArray(obj.exercises) && obj.exercises.length) state.exercises = obj.exercises;
+        if (Array.isArray(obj.workouts)) state.workouts = obj.workouts;
+        if (Array.isArray(obj.body_metrics)) state.body_metrics = obj.body_metrics;
+        if (obj.activeWorkoutId) state.activeWorkoutId = obj.activeWorkoutId;
+        if (obj.lastLoadedFile) state.lastLoadedFile = obj.lastLoadedFile;
+      }
+    } catch {}
+
+    // === ONE-TIME MIGRATION: store weights in pounds ===
+    (function migrateToLbOnce(){
+      const FLAG = 'migrated_lb_v1';
+      if (localStorage.getItem(FLAG)) return;
+
+      for (const w of state.workouts || []) {
+        for (const ex of (w.exercises || [])) {
+          for (const s of (ex.sets || [])) {
+            if (typeof s.weight_lb !== 'number') {
+              const kg = Number(s.weight_kg) || 0;
+              s.weight_lb = kgToLb(kg);   // convert old kg to lb
+            }
+            delete s.weight_kg;           // drop legacy field
+          }
+        }
+      }
+      persist();
+      localStorage.setItem(FLAG, '1');
+    })();
+
+
+    const persist = () => {
+      localStorage.setItem('wt_state', JSON.stringify({
+        settings: state.settings,
+        exercises: state.exercises,
+        workouts: state.workouts,
+        body_metrics: state.body_metrics,
+        activeWorkoutId: state.activeWorkoutId,
+        lastLoadedFile: state.lastLoadedFile
+      }));
+    };
+
+    // Theme applier (no reference to #themeSel anymore)
+    const applyTheme = () => {
+      document.body.classList.toggle('theme-light', state.settings.theme === 'light');
+      document.body.classList.toggle('theme-dark',  state.settings.theme !== 'light');
+      if (themeSwitch) themeSwitch.checked = (state.settings.theme === 'light');
+    };
+    applyTheme();
+
+    // ===== TABS =====
+    const switchTab = (tab) => {
+      $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      $('#tab-workouts').classList.toggle('hidden', tab !== 'workouts');
+      $('#tab-body').classList.toggle('hidden', tab !== 'body');
+      $('#tab-progress').classList.toggle('hidden', tab !== 'progress');
+      $('#tab-activeWorkout').classList.toggle('hidden', tab !== 'activeWorkout');
+      if (tab === 'workouts') renderWorkouts();
+      if (tab === 'activeWorkout') renderActiveWorkout();
+      if (tab === 'body') renderBody();
+      if (tab === 'progress') renderProgress();
+    };
+
+    $$('.tab').forEach(t => t.addEventListener('click', ()=> switchTab(t.dataset.tab)));
+    switchTab('workouts');
+
+    // ===== SETTINGS PANEL =====
+    document.addEventListener('DOMContentLoaded', () => {
+      const settingsPop  = $('#settingsPop');
+      const unitSwitch   = $('#unitSwitch');   // checkbox (off=lb, on=kg)
+      const themeSwitch  = $('#themeSwitch');  // checkbox (off=dark, on=light)
+      const unitLabel    = $('#unitLabel');    // optional text next to switch
+      const themeLabel   = $('#themeLabel');   // optional text next to switch
+
+      // Ensure hamburger opens/closes the panel and syncs UI
+      $('#gearBtn').addEventListener('click', () => {
+        settingsPop.classList.toggle('show');
+
+        if (unitSwitch)  unitSwitch.checked  = (state.settings.units === 'kg');
+        if (themeSwitch) themeSwitch.checked = (state.settings.theme === 'light');
+
+        if (unitLabel)  unitLabel.textContent  = unitSwitch?.checked ? 'kg'   : 'lb';
+        if (themeLabel) themeLabel.textContent = themeSwitch?.checked ? 'Light': 'Dark';
+
+        const li = $('#loadedInfo');
+        if (li) li.textContent = state.lastLoadedFile ? ('Loaded: ' + state.lastLoadedFile) : 'No file loaded yet.';
+      });
+
+      document.body.addEventListener('click', (e) => {
+        if (!settingsPop.contains(e.target) && e.target !== $('#gearBtn')) settingsPop.classList.remove('show');
+      }, true);
+
+      // Apply theme (no reference to #themeSel)
+      function applyTheme() {
+        const isLight = (state.settings.theme === 'light');
+        document.body.classList.toggle('theme-light', isLight);
+        document.body.classList.toggle('theme-dark',  !isLight);
+        if (themeSwitch) themeSwitch.checked = isLight;
+        if (themeLabel)  themeLabel.textContent = isLight ? 'Light' : 'Dark';
+      }
+
+      // Initial sync
+      if (unitSwitch)  unitSwitch.checked  = (state.settings.units === 'kg');
+      if (unitLabel)   unitLabel.textContent = unitSwitch?.checked ? 'kg' : 'lb';
+      applyTheme();
+
+      // Units change
+      if (unitSwitch) {
+        unitSwitch.addEventListener('change', () => {
+          state.settings.units = unitSwitch.checked ? 'kg' : 'lb';
+          if (unitLabel) unitLabel.textContent = unitSwitch.checked ? 'kg' : 'lb';
+          persist();
+          if (!$('#tab-workouts').classList.contains('hidden')) renderWorkouts();
+          if (!$('#tab-progress').classList.contains('hidden')) renderProgress();
+          if (!$('#tab-activeWorkout').classList.contains('hidden')) renderActiveWorkout();
+        });
+      }
+
+      // Theme change
+      if (themeSwitch) {
+        themeSwitch.addEventListener('change', () => {
+          state.settings.theme = themeSwitch.checked ? 'light' : 'dark';
+          applyTheme();
+          persist();
+        });
+      }
+    });
+
+
+
+    // ===== IMPORT / EXPORT =====
+    $('#uploadBtn').addEventListener('click', () => $('#fileInput').click());
+    $('#fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const txt = await file.text();
+        const data = JSON.parse(txt);
+        importData(data);
+        state.lastLoadedFile = file.name;
+        persist();
+        settingsPop.classList.remove('show');
+        alert('Data imported.');
+      } catch (err) {
+        console.error(err);
+        alert('Invalid JSON file.');
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    function importData(data){
+      if (data.settings) {
+        state.settings.units = data.settings.units || state.settings.units;
+        if (data.settings.theme) state.settings.theme = data.settings.theme;
+      }
+      if (Array.isArray(data.exercises)) {
+        const map = new Map(state.exercises.map(x => [x.id, x]));
+        for (const ex of data.exercises) {
+          if (!ex.id) ex.id = slug(ex.name || 'exercise');
+          if (map.has(ex.id)) {
+            const cur = map.get(ex.id);
+            cur.name = ex.name ?? cur.name;
+            cur.image = ex.image ?? cur.image;
+            cur.description = ex.description ?? cur.description;
+            cur.note_global = ex.note_global ?? cur.note_global;
+          } else map.set(ex.id, ex);
+        }
+        state.exercises = Array.from(map.values());
+      }
+      if (Array.isArray(data.workouts)) {
+        const map = new Map(state.workouts.map(w => [w.id, w]));
+        for (const w of data.workouts) map.set(w.id, w);
+        state.workouts = Array.from(map.values()).sort((a,b)=> (a.start_ts||'').localeCompare(b.start_ts));
+      }
+      if (Array.isArray(data.body_metrics)) {
+        const map = new Map(state.body_metrics.map(bm => [bm.ts, bm]));
+        for (const bm of data.body_metrics) map.set(bm.ts, bm);
+        state.body_metrics = Array.from(map.values()).sort((a,b)=> (a.ts||'').localeCompare(b.ts));
+      }
+      persist();
+      if (!$('#tab-workouts').classList.contains('hidden')) renderWorkouts();
+      if (!$('#tab-body').classList.contains('hidden')) renderBody();
+      if (!$('#tab-progress').classList.contains('hidden')) renderProgress();
+      applyTheme();
+    }
+
+    $('#saveBtn').addEventListener('click', () => {
+      const json = JSON.stringify({
+        settings: state.settings,
+        exercises: state.exercises,
+        workouts: state.workouts,
+        body_metrics: state.body_metrics
+      }, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      const now = new Date();
+      const fname = `workouts_backup-${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}_${pad2(now.getHours())}-${pad2(now.getMinutes())}-${pad2(now.getSeconds())}.json`;
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=> {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 1000);
+    });
+
+    // ===== WORKOUTS RENDERING =====
+    function renderWorkouts(){
+      //const hasActive = !!state.activeWorkoutId;
+      //$('#workoutsHome').classList.toggle('hidden', hasActive);
+      //$('#activeWorkout').classList.toggle('hidden', !hasActive);
+      renderRecentWorkouts();
+      //if (hasActive) renderActiveWorkout();
+    }
+
+    function renderRecentWorkouts(){
+      const box = $('#recentWorkouts');
+      box.innerHTML = '';
+      const items = deepCopy(state.workouts).reverse();
+      if (!items.length) {
+        const c = document.createElement('div');
+        c.className = 'card';
+        c.innerHTML = '<div class="muted">No workouts yet. Tap <b>Add Workout</b> to begin.</div>';
+        box.appendChild(c);
+        return;
+      }
+      for (const w of items) {
+        const row = document.createElement('div');
+        row.className = 'card row-between';
+        const totalSets = (w.exercises||[]).reduce((s,e)=> s + (e.sets?.length||0), 0);
+        row.innerHTML = `
+          <div>
+            <div style="font-weight:700">${escapeHtml(w.name || '(unnamed)')}</div>
+            <div class="small muted">${fmtDate(w.start_ts)} • ${w.exercises?.length||0} exercises • ${totalSets} sets</div>
+          </div>
+          <button class="btn ghost" data-id="${w.id}">View</button>
+        `;
+        row.querySelector('button').addEventListener('click', ()=> viewWorkout(w.id));
+        box.appendChild(row);
+      }
+    }
+
+    function viewWorkout(id){
+      const w = state.workouts.find(x=>x.id===id);
+      if (!w) return;
+      openModal(`<h3 style="margin:0">${escapeHtml(w.name||'')}</h3>
+        <div class="small muted">${fmtDate(w.start_ts)}${w.end_ts ? ' – ' + fmtDate(w.end_ts) : ''}</div>
+        <div style="height:8px"></div>
+        ${(w.exercises||[]).map(ex=>`<div class="card" style="margin:8px 0">
+          <div class="row-between">
+            <div style="font-weight:600">${escapeHtml(lookupExercise(ex.ex_id)?.name || '(deleted)')}</div>
+            <div class="pill">${ex.sets?.length||0} sets</div>
+          </div>
+          <div class="sets">${
+            (ex.sets||[]).map((s,i)=>`
+              <div class="row-between small">
+                <div>Set ${i+1}</div>
+                <div>${displayWeight(s.weight_lb || 0)} ${state.settings.units} × ${s.reps}#</div>
+              </div>
+            `).join('')
+          }</div>
+        </div>`).join('') || '<div class="muted">No exercises.</div>'}
+      `, 'Close', null);
+    }
+
+
+    function renderActiveWorkout(){
+      const w = state.workouts.find(x=>x.id===state.activeWorkoutId);
+      if (!w) return;
+      $('#awName').textContent = w.name||'';
+      $('#awSub').textContent = fmtDate(w.start_ts);
+      const list = $('#exerciseCards'); list.innerHTML = '';
+      for (const ex of (w.exercises||[])) {
+        const exMeta = lookupExercise(ex.ex_id) || { name: '(deleted)', image:'', note_global:'' };
+        const card = document.createElement('div');
+        card.className = 'card exercise-card';
+        const img = exMeta.image ? `<img src="${escapeHtml(exMeta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">`
+                                 : `<svg width="28" height="28" viewBox="0 0 24 24"><path d="M7 10h10M7 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+        card.innerHTML = `
+          <div class="exercise-img">${img}</div>
+          <div>
+            <div class="row-between">
+              <div style="font-weight:700">${escapeHtml(exMeta.name)}</div>
+              <div class="exercise-actions">
+                <button class="btn ghost" data-act="info">Review Progress</button>
+                <button class="btn ghost" data-act="note">${exMeta.note_global ? 'Edit Note' : 'Add Note'}</button>
+              </div>
+            </div>
+            ${exMeta.note_global ? `<div class="small" style="margin-top:6px">${escapeHtml(exMeta.note_global)}</div>` : ''}
+            <div class="sets" data-ex="${ex.ex_id}"></div>
+            <div style="margin-top:8px; display:flex; justify-content:flex-end;">
+              <button class="btn primary" data-act="addSet">Add Set</button>
+            </div>
+          </div>
+          <div><span class="pill">${(ex.sets||[]).length} sets</span></div>
+        `;
+        const setsBox = card.querySelector('.sets');
+        (ex.sets||[]).forEach((s,i)=> setsBox.appendChild(renderSetRow(ex.ex_id, i, s)));
+        card.querySelector('[data-act="addSet"]').addEventListener('click', ()=> {
+          ex.sets = ex.sets || [];
+          ex.sets.push({ ts: nowISO(), weight_kg: 0, reps: 0 });
+          persist(); renderActiveWorkout();
+        });
+        card.querySelector('[data-act="info"]').addEventListener('click', ()=> openExerciseProgress(ex.ex_id));
+        card.querySelector('[data-act="note"]').addEventListener('click', ()=> openEditGlobalNote(ex.ex_id));
+        list.appendChild(card);
+      }
+    }
+
+    function renderSetRow(ex_id, idx, s){
+      // safety for any legacy set objects
+      if (typeof s.weight_lb !== 'number' && typeof s.weight_kg === 'number') {
+        s.weight_lb = kgToLb(s.weight_kg);
+        delete s.weight_kg;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.innerHTML = `
+        <div class="set-label">Set ${idx+1}</div>
+        <div></div> <!-- spacer column -->
+        <div class="set-right">
+          <div class="field">
+            <label>Weight</label>
+            <input type="number" inputmode="decimal" value="${displayWeight(s.weight_lb || 0)}" data-field="weight">
+            <span class="small">${state.settings.units}</span>
+          </div>
+          <div class="field">
+            <label>Reps</label>
+            <input class="reps" type="number" inputmode="numeric" value="${Number(s.reps)||0}" data-field="reps">
+            <span class="small">#</span>
+          </div>
+        </div>
+      `;
+
+      // Always save pounds internally
+      row.querySelector('[data-field="weight"]').addEventListener('input', (e)=> {
+        s.weight_lb = parseWeightToLb(e.target.value);
+        persist();
+      });
+      row.querySelector('[data-field="reps"]').addEventListener('input', (e)=> {
+        const v = parseInt(e.target.value||'0', 10);
+        s.reps = Number.isFinite(v) ? v : 0;
+        persist();
+      });
+
+      return row;
+    }
+
+
+
+    const dispWeight = kg => { const v = state.settings.units === 'lb' ? kgToLb(kg||0) : (kg||0); return Math.round(v * 100) / 100; };
+    const numFmt = n => (isFinite(n)? (Math.round(n*100)/100) : 0);
+
+    function lookupExercise(id){ return state.exercises.find(x=>x.id===id); }
+
+    // ===== WORKOUT ACTIONS =====
+    $('#addWorkoutBtn').addEventListener('click', ()=> {
+      openModal(`
+        <div class="input-with-btn">
+          <input id="wName" placeholder="Workout Name" autocomplete="off">
+          <button class="inline-btn" id="wAddInline">Add</button>
+        </div>
+      `, 'OK', null, true); // footer hidden
+
+      const doAdd = () => {
+        const name = ($('#wName').value || '').trim();
+        if (!name) { $('#wName').focus(); return; }
+
+        const w = {
+          id: 'w_' + Date.now(),
+          name: name + ' — ' + todayLabel(),
+          start_ts: nowISO(),
+          end_ts: null,
+          exercises: []
+        };
+        state.workouts.push(w);
+        state.activeWorkoutId = w.id;
+        persist();
+
+        const activeTab = document.querySelector('[data-tab="activeWorkout"]');
+        if (activeTab) activeTab.classList.remove('hidden');
+        switchTab('activeWorkout');
+
+        closeModal();
+        renderWorkouts();
+      };
+
+      // hook up the inline button + Enter key
+      $('#wAddInline').addEventListener('click', doAdd);
+      $('#wName').addEventListener('keydown', (e)=> { if (e.key === 'Enter') doAdd(); });
+
+      // focus the field
+      setTimeout(()=> $('#wName').focus(), 0);
+    });
+
+    $('#cancelWorkoutBtn').addEventListener('click', ()=> {
+      openModal(`<div>Cancel this workout? It will be deleted.</div>`, 'Delete', ()=> {
+        const id = state.activeWorkoutId;
+        state.workouts = state.workouts.filter(w => w.id !== id);
+        state.activeWorkoutId = null;
+        document.querySelector('[data-tab="activeWorkout"]').classList.add('hidden');
+        switchTab('workouts');
+
+        persist();
+        renderWorkouts();
+
+        // Removed: setTimeout(()=> $('#saveBtn').click(), 150);
+      });
+    });
+
+
+    $('#addExerciseBtn').addEventListener('click', ()=> openExercisePicker());
+
+    $('#finishWorkoutBtn').addEventListener('click', ()=> {
+      openModal(`<div>Finish this workout?</div>`, 'Finish', ()=> {
+        const w = state.workouts.find(x=>x.id===state.activeWorkoutId);
+        if (w) w.end_ts = nowISO();
+        state.activeWorkoutId = null;
+        document.querySelector('[data-tab="activeWorkout"]').classList.add('hidden');
+        switchTab('workouts');
+
+        persist();
+        renderWorkouts();
+        setTimeout(()=> $('#saveBtn').click(), 150);
+      });
+    });
+
+    function openExercisePicker(){
+      // Build the modal contents
+      openModal(`
+        <div class="grid">
+          <input id="exSearch" placeholder="Search exercises..." autocomplete="off">
+          <div id="exList" class="list"></div>
+        </div>
+      `, 'Close', null); // Keep footer; OK just closes
+
+      const box = $('#exList');
+      const all = state.exercises.filter(x => !x.hidden);
+
+      const render = (q='') => {
+        box.innerHTML = '';
+        const items = all.filter(x => x.name.toLowerCase().includes(q.toLowerCase()));
+        items.forEach(ex => {
+          const icon = ex.image
+            ? `<img src="${escapeHtml(ex.image)}" alt="" style="width:100%;height:100%;object-fit:cover">`
+            : `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 12h12M6 8h12M6 16h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>`;
+
+          const row = document.createElement('div');
+          row.className = 'card';
+          row.innerHTML = `
+            <div class="ex-option">
+              <div class="ex-icon">${icon}</div>
+              <div>
+                <div class="ex-name">
+                  ${escapeHtml(ex.name)}
+                  ${ex.type ? `<span class="ex-type">(${escapeHtml(ex.type)})</span>` : ''}
+                </div>
+              </div>
+              <button class="btn primary">Add</button>
+            </div>
+          `;
+
+          row.querySelector('button').addEventListener('click', () => {
+            const w = state.workouts.find(x => x.id === state.activeWorkoutId);
+            if (!w) return;
+            w.exercises.push({ ex_id: ex.id, sets: [] });
+            persist();
+            closeModal();
+            renderActiveWorkout();
+          });
+
+          box.appendChild(row);
+        });
+
+        if (!box.childElementCount) {
+          box.innerHTML = '<div class="muted">No matches.</div>';
+        }
+      };
+
+      render();
+      $('#exSearch').addEventListener('input', e => render(e.target.value));
+    }
+
+
+    function openEditGlobalNote(ex_id){
+      const ex = lookupExercise(ex_id);
+      if (!ex) return;
+
+      openModal(`
+        <div class="input-with-btn">
+          <input id="noteArea" placeholder="Note: Tips, cues, setup etc..." 
+                value="${escapeHtml(ex.note_global||'')}" autocomplete="off">
+          <button class="inline-btn" id="noteSave">Save</button>
+        </div>
+      `, 'Cancel', null, true); // hide default footer
+
+      // Save handler
+      const doSave = () => {
+        ex.note_global = $('#noteArea').value || '';
+        persist();
+        renderActiveWorkout();
+        closeModal();
+      };
+      $('#noteSave').addEventListener('click', doSave);
+
+      // Allow Enter key to save
+      $('#noteArea').addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          doSave();
+        }
+      });
+
+      // Focus field
+      setTimeout(()=> $('#noteArea').focus(), 0);
+    }
+
+
+    // ===== BODY =====
+    $('#bmUpdateBtn').addEventListener('click', ()=> {
+      const entry = {
+        ts: nowISO(),
+        weight: numOrNull($('#bmWeight').value),
+        arm: numOrNull($('#bmArm').value),
+        waist: numOrNull($('#bmWaist').value),
+        thigh: numOrNull($('#bmThigh').value),
+        calf: numOrNull($('#bmCalf').value),
+        notes: ($('#bmNotes').value||'').trim() || null
+      };
+      state.body_metrics.push(entry);
+      state.body_metrics.sort((a,b)=> a.ts.localeCompare(b.ts));
+      persist();
+      renderBody();
+      setTimeout(()=> $('#saveBtn').click(), 150);
+    });
+    function numOrNull(v){ const n = parseFloat(v); return isFinite(n)? n : null; }
+    function renderBody(){ renderBodyList(); }
+    function renderBodyList(){
+      const box = $('#bmList');
+      box.innerHTML='';
+      const items = deepCopy(state.body_metrics).reverse();
+      if (!items.length) { box.innerHTML = '<div class="muted">No metrics yet.</div>'; return; }
+      for (const m of items) {
+        const row = document.createElement('div');
+        row.className = 'card row-between';
+        const main = [];
+        if (isFinite(m.weight)) main.push(`Wt: ${m.weight}`);
+        if (isFinite(m.waist)) main.push(`Waist: ${m.waist}`);
+        if (isFinite(m.arm)) main.push(`Arm: ${m.arm}`);
+        row.innerHTML = `<div><div style="font-weight:600">${fmtDate(m.ts)}</div><div class="small muted">${main.join(' • ')||'No fields'}</div></div>`;
+        box.appendChild(row);
+      }
+    }
+
+    // ===== PROGRESS =====
+    $('#progCat').addEventListener('change', renderProgress);
+    $('#progExercise').addEventListener('change', renderProgressCharts);
+
+    function renderProgress(){
+      const cat = $('#progCat').value;
+      const wrap = $('#progExerciseWrap');
+      const charts = $('#progressCharts');
+      charts.innerHTML='';
+      if (cat === 'workouts') {
+        wrap.style.display = '';
+        const sel = $('#progExercise');
+        sel.innerHTML = '';
+        state.exercises.filter(x=>!x.hidden).forEach(ex=> {
+          const opt = document.createElement('option');
+          opt.value = ex.id; opt.textContent = ex.name;
+          sel.appendChild(opt);
+        });
+        renderProgressCharts();
+      } else {
+        wrap.style.display = 'none';
+        renderBodyCharts();
+      }
+    }
+
+    function openExerciseProgress(ex_id){
+      const ex = lookupExercise(ex_id);
+      if (!ex) return;
+      $('#slideTitle').textContent = ex.name;
+      $('#slideCharts').innerHTML='';
+      const data = summarizeExercise(ex_id);
+      const c1 = makeChartCanvas(); $('#slideCharts').appendChild(c1);
+      drawLineChart(c1, data.maxWeight, { title: 'Max weight per workout', yLabel: unitLabel() });
+      const c2 = makeChartCanvas(); $('#slideCharts').appendChild(c2);
+      drawLineChart(c2, data.avgWeight, { title: 'Average working weight', yLabel: unitLabel() });
+      const c3 = makeChartCanvas(); $('#slideCharts').appendChild(c3);
+      drawLineChart(c3, data.avgReps, { title: 'Average reps per set', yLabel: 'reps' });
+      $('#slideOver').classList.add('show');
+    }
+    $('#slideClose').addEventListener('click', ()=> $('#slideOver').classList.remove('show'));
+
+    function renderProgressCharts(){
+      const exId = $('#progExercise').value;
+      const charts = $('#progressCharts');
+      charts.innerHTML='';
+      if (!exId) return;
+      const data = summarizeExercise(exId);
+      const c1 = makeChartCanvas(); charts.appendChild(c1);
+      drawLineChart(c1, data.maxWeight, { title: 'Max weight per workout', yLabel: unitLabel() });
+      const c2 = makeChartCanvas(); charts.appendChild(c2);
+      drawLineChart(c2, data.avgWeight, { title: 'Average working weight', yLabel: unitLabel() });
+      const c3 = makeChartCanvas(); charts.appendChild(c3);
+      drawLineChart(c3, data.avgReps, { title: 'Average reps per set', yLabel: 'reps' });
+    }
+
+    function renderBodyCharts(){
+      const charts = $('#progressCharts');
+      charts.innerHTML='';
+      const series = metricSeries();
+      for (const [key, data] of Object.entries(series)) {
+        const c = makeChartCanvas(); charts.appendChild(c);
+        drawLineChart(c, data, { title: key.charAt(0).toUpperCase()+key.slice(1) + ' over time', yLabel: key });
+      }
+    }
+
+    function unitLabel(){ return state.settings.units; }
+
+    function summarizeExercise(exId){
+      // group by workout (date), compute metrics
+      const perWorkout = [];
+      for (const w of state.workouts) {
+        const e = (w.exercises||[]).find(x=>x.ex_id===exId);
+        if (!e || !e.sets || !e.sets.length) continue;
+        const weights = e.sets.map(s => displayWeight(s.weight_lb || 0));
+        const reps = e.sets.map(s=> Number(s.reps)||0);
+        const maxW = Math.max(...weights);
+        const avgW = weights.reduce((a,b)=>a+b,0)/weights.length;
+        const avgR = reps.reduce((a,b)=>a+b,0)/reps.length;
+        perWorkout.push({ x: new Date(w.start_ts).getTime(), maxW, avgW, avgR });
+      }
+      perWorkout.sort((a,b)=> a.x - b.x);
+      return {
+        maxWeight: perWorkout.map(p=> ({ x:p.x, y:p.maxW })),
+        avgWeight: perWorkout.map(p=> ({ x:p.x, y:p.avgW })),
+        avgReps: perWorkout.map(p=> ({ x:p.x, y:p.avgR })),
+      };
+    }
+
+    function metricSeries(){
+      const series = { weight: [], arm: [], waist: [], thigh: [], calf: [] };
+      for (const m of state.body_metrics) {
+        const t = new Date(m.ts).getTime();
+        for (const k of Object.keys(series)) {
+          if (typeof m[k] === 'number' && isFinite(m[k])) series[k].push({ x:t, y:m[k] });
+        }
+      }
+      for (const k of Object.keys(series)) series[k].sort((a,b)=> a.x-b.x);
+      return series;
+    }
+
+    function makeChartCanvas(){
+      const c = document.createElement('canvas'); c.className = 'chart'; c.width = 800; c.height = 240; return c;
+    }
+    const round2 = v => Math.round((v || 0) * 100) / 100;
+    const displayWeight = (lb) => state.settings.units === 'kg' ? round2(lbToKg(lb)) : round2(lb);
+    const parseWeightToLb = (v) => {
+      const n = parseFloat(v || '0');
+      return state.settings.units === 'kg' ? kgToLb(n) : n;
+    };
+
+
+
+    // Minimal line chart (single series)
+    function drawLineChart(canvas, data, { title='', yLabel='' }={}){
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const W = canvas.width, H = canvas.height;
+      const m = { l: 48, r: 12, t: 28, b: 32 };
+      // title
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text');
+      ctx.font = '600 14px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.fillText(title, m.l, m.t - 10);
+
+      if (!data || !data.length) {
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+        ctx.fillText('No data', m.l, (H+m.t)/2);
+        return;
+      }
+      const xs = data.map(p=>p.x);
+      const ys = data.map(p=>p.y);
+      const xMin = Math.min(...xs), xMax = Math.max(...xs);
+      const yMin = Math.min(...ys), yMax = Math.max(...ys);
+      const xScale = v => m.l + ( (v - xMin) / (xMax - xMin || 1) ) * (W - m.l - m.r);
+      const yScale = v => H - m.b - ( (v - yMin) / (yMax - yMin || 1) ) * (H - m.t - m.b);
+
+      // grid
+      ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--ring');
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i=0;i<=4;i++){
+        const y = m.t + i * (H - m.t - m.b)/4;
+        ctx.moveTo(m.l, y); ctx.lineTo(W - m.r, y);
+      }
+      ctx.stroke();
+
+      // axes labels
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+      ctx.font = '12px system-ui,-apple-system, Segoe UI, Roboto';
+      ctx.fillText(yLabel, 6, m.t);
+
+      // line
+      ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent');
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      data.forEach((p,i)=> {
+        const x = xScale(p.x), y = yScale(p.y);
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+      // points
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent');
+      data.forEach(p=> { const x=xScale(p.x), y=yScale(p.y); ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill(); });
+
+      // x-axis ticks (dates)
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+      const tickN = Math.min(5, data.length);
+      for (let i=0; i<tickN; i++){
+        const idx = Math.round(i*(data.length-1)/(tickN-1 || 1));
+        const t = new Date(data[idx].x);
+        const label = (t.getMonth()+1)+'/'+t.getDate();
+        const x = xScale(data[idx].x);
+        ctx.fillText(label, clamp(x-8, m.l, W-m.r-24), H - 8);
+      }
+    }
+
+    // ===== MANAGE EXERCISES =====
+    $('#manageExercisesBtn').addEventListener('click', ()=> { renderME(); $('#manageOverlay').classList.add('show'); settingsPop.classList.remove('show'); });
+    $('#meClose').addEventListener('click', ()=> $('#manageOverlay').classList.remove('show'));
+    $('#meAdd').addEventListener('click', ()=> openMEEditor());
+
+    function renderME(filter=''){
+      const list = $('#meList'); list.innerHTML='';
+      const q = ($('#meSearch').value||'').toLowerCase();
+      state.exercises.filter(x=> !q || x.name.toLowerCase().includes(q)).forEach(ex=> {
+        const row = document.createElement('div'); row.className = 'card row-between';
+        row.innerHTML = `
+          <div>
+            <div style="font-weight:700">${escapeHtml(ex.name)}</div>
+            <div class="small muted">
+              ${ex.type ? `[${escapeHtml(ex.type)}] ` : ''}${ex.description ? escapeHtml(ex.description) : ''}
+            </div>
+          </div>
+          <div class="row" style="gap:6px">
+            <button class="btn ghost" data-act="edit">Edit</button>
+            <button class="btn ghost" data-act="hide">${ex.hidden? 'Unhide' : 'Hide'}</button>
+          </div>`;
+
+        row.querySelector('[data-act="edit"]').addEventListener('click', ()=> openMEEditor(ex));
+        row.querySelector('[data-act="hide"]').addEventListener('click', ()=> { ex.hidden = !ex.hidden; persist(); renderME(); });
+        list.appendChild(row);
+      });
+    }
+    $('#meSearch').addEventListener('input', ()=> renderME());
+
+    function openMEEditor(ex=null){
+      const isNew = !ex;
+      ex = ex ? deepCopy(ex) : { id:'', name:'', image:'', description:'', note_global:'' };
+      openModal(`
+        <div class="grid">
+          <div><label>Name</label><input id="exName" value="${escapeHtml(ex.name)}" placeholder="e.g., Incline Bench"></div>
+          <div><label>Image URL</label><input id="exImg" value="${escapeHtml(ex.image)}" placeholder="https://..."></div>
+          <div><label>Type</label><input id="exType" value="${escapeHtml(ex.type || '')}" placeholder="Push / Pull / Legs"></div>
+          <div><label>Description</label><textarea id="exDesc" rows="3" placeholder="optional">${escapeHtml(ex.description||'')}</textarea></div>
+
+
+      <div><label>Global Note</label><textarea id="exNote" rows="3" placeholder="Displays on card every time">${escapeHtml(ex.note_global||'')}</textarea></div>
+    </div>
+  `, 'Save', () => {
+    const name = ($('#exName').value||'').trim();
+    if (!name) { alert('Name required'); return; }
+    const id = ex.id || slug(name);
+    const existing = state.exercises.find(x => x.id === id);
+    const payload = {
+      id, name,
+      image: ($('#exImg').value||'').trim(),
+      type: ($('#exType').value||'').trim(),
+      description: ($('#exDesc').value||'').trim(),
+      note_global: ($('#exNote').value||'').trim(),
+      hidden: existing ? existing.hidden : false
+    };
+    if (existing) Object.assign(existing, payload); else state.exercises.push(payload);
+    persist(); renderME(); closeModal();
+  });
+
+}
+
+// ===== MODAL HELPERS =====
+const overlay = $('#modalOverlay');
+
+// Close when clicking outside the modal card
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay) closeModal();
+});
+
+// Optional: close with Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+
+function openModal(html, okText='OK', onOk=null, hideFooter=false){
+  $('#modalBody').innerHTML = html;
+  overlay.classList.add('show');
+
+  const footer = $('#modalBody').nextElementSibling; // the row with Cancel/OK
+  footer.style.display = hideFooter ? 'none' : 'flex';
+
+  if (!hideFooter) {
+    $('#modalOk').textContent = okText;
+    $('#modalOk').classList.remove('hidden');
+    const onCancel = ()=> { closeModal(); };
+    $('#modalCancel').onclick = onCancel;
+    $('#modalOk').onclick = ()=> { try { onOk && onOk(); } finally { onCancel(); } };
+  } else {
+    $('#modalOk').onclick = null;
+    $('#modalCancel').onclick = null;
+  }
+}
+
+function closeModal(){ overlay.classList.remove('show'); $('#modalOk').onclick = null; $('#modalCancel').onclick = null; }
+
+// Initial renders
+renderWorkouts();
+
+
+  </script>
+</body>
+</html>
