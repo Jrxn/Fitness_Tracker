@@ -3,7 +3,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Workout Tracker</title>
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='10' width='64' height='64' fill='%2322c55e'/%3E%3Cpath d='M20 18v10H8v8h12v10h8V36h8v10h8V36h12v-8H44V18h-8v10h-8V18z' fill='white'/%3E%3C/svg%3E">
   <style>
@@ -662,13 +662,19 @@
       }));
     };
 
-    // Theme applier (no reference to #themeSel anymore)
-    const applyTheme = () => {
-      document.body.classList.toggle('theme-light', state.settings.theme === 'light');
-      document.body.classList.toggle('theme-dark',  state.settings.theme !== 'light');
-      if (themeSwitch) themeSwitch.checked = (state.settings.theme === 'light');
-    };
+    // Theme applier: safe global (doesn't depend on inner-scope vars)
+    function applyTheme() {
+      const isLight = (state.settings.theme === 'light');
+      document.body.classList.toggle('theme-light', isLight);
+      document.body.classList.toggle('theme-dark',  !isLight);
+      const ts = document.getElementById('themeSwitch');
+      const tl = document.getElementById('themeLabel');
+      if (ts) ts.checked = isLight;
+      if (tl) tl.textContent = isLight ? 'Light' : 'Dark';
+    }
     applyTheme();
+
+    
 
     // ===== TABS =====
     const switchTab = (tab) => {
@@ -753,15 +759,24 @@
     // ===== IMPORT / EXPORT =====
     $('#uploadBtn').addEventListener('click', () => $('#fileInput').click());
     $('#fileInput').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
+      const file = (e.target.files && e.target.files[0]) ? e.target.files[0] : null;
       if (!file) return;
+
       try {
         const txt = await file.text();
         const data = JSON.parse(txt);
+
         importData(data);
         state.lastLoadedFile = file.name;
         persist();
-        settingsPop.classList.remove('show');
+
+        // Safely close the settings popover if present
+        const sp = document.getElementById('settingsPop');
+        if (sp) sp.classList.remove('show');
+
+        // If your theme is part of imported settings, sync it
+        if (typeof applyTheme === 'function') applyTheme();
+
         alert('Data imported.');
       } catch (err) {
         console.error(err);
@@ -770,6 +785,7 @@
         e.target.value = '';
       }
     });
+
 
     function importData(data){
       if (data.settings) {
@@ -889,17 +905,24 @@
 
 
     function renderActiveWorkout(){
-      const w = state.workouts.find(x=>x.id===state.activeWorkoutId);
+      const w = state.workouts.find(x => x.id === state.activeWorkoutId);
       if (!w) return;
-      $('#awName').textContent = w.name||'';
+
+      $('#awName').textContent = w.name || '';
       $('#awSub').textContent = fmtDate(w.start_ts);
-      const list = $('#exerciseCards'); list.innerHTML = '';
-      for (const ex of (w.exercises||[])) {
-        const exMeta = lookupExercise(ex.ex_id) || { name: '(deleted)', image:'', note_global:'' };
+
+      const list = $('#exerciseCards');
+      list.innerHTML = '';
+
+      for (const ex of (w.exercises || [])) {
+        const exMeta = lookupExercise(ex.ex_id) || { name: '(deleted)', image: '', note_global: '' };
         const card = document.createElement('div');
         card.className = 'card exercise-card';
-        const img = exMeta.image ? `<img src="${escapeHtml(exMeta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">`
-                                 : `<svg width="28" height="28" viewBox="0 0 24 24"><path d="M7 10h10M7 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+        const img = exMeta.image
+          ? `<img src="${escapeHtml(exMeta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">`
+          : `<svg width="28" height="28" viewBox="0 0 24 24"><path d="M7 10h10M7 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
         card.innerHTML = `
           <div class="exercise-img">${img}</div>
           <div>
@@ -916,20 +939,26 @@
               <button class="btn primary" data-act="addSet">Add Set</button>
             </div>
           </div>
-          <div><span class="pill">${(ex.sets||[]).length} sets</span></div>
+          <div><span class="pill">${(ex.sets || []).length} sets</span></div>
         `;
+
         const setsBox = card.querySelector('.sets');
-        (ex.sets||[]).forEach((s,i)=> setsBox.appendChild(renderSetRow(ex.ex_id, i, s)));
-        card.querySelector('[data-act="addSet"]').addEventListener('click', ()=> {
+        (ex.sets || []).forEach((s, i) => setsBox.appendChild(renderSetRow(ex.ex_id, i, s)));
+
+        card.querySelector('[data-act="addSet"]').addEventListener('click', () => {
           ex.sets = ex.sets || [];
-          ex.sets.push({ ts: nowISO(), weight_kg: 0, reps: 0 });
-          persist(); renderActiveWorkout();
+          ex.sets.push({ ts: nowISO(), weight_lb: 0, reps: 0 }); // store in pounds
+          persist();
+          renderActiveWorkout();
         });
-        card.querySelector('[data-act="info"]').addEventListener('click', ()=> openExerciseProgress(ex.ex_id));
-        card.querySelector('[data-act="note"]').addEventListener('click', ()=> openEditGlobalNote(ex.ex_id));
+
+        card.querySelector('[data-act="info"]').addEventListener('click', () => openExerciseProgress(ex.ex_id));
+        card.querySelector('[data-act="note"]').addEventListener('click', () => openEditGlobalNote(ex.ex_id));
+
         list.appendChild(card);
       }
     }
+
 
     function renderSetRow(ex_id, idx, s){
       // safety for any legacy set objects
@@ -973,7 +1002,15 @@
 
 
 
-    const dispWeight = kg => { const v = state.settings.units === 'lb' ? kgToLb(kg||0) : (kg||0); return Math.round(v * 100) / 100; };
+    function displayWeight(lb) {
+      const v = state.settings.units === 'kg' ? lbToKg(lb || 0) : (lb || 0);
+      return Math.round(v * 100) / 100;
+    }
+    function parseWeightToLb(input) {
+      const v = parseFloat(input);
+      if (!Number.isFinite(v)) return 0;
+      return state.settings.units === 'kg' ? kgToLb(v) : v;
+    }
     const numFmt = n => (isFinite(n)? (Math.round(n*100)/100) : 0);
 
     function lookupExercise(id){ return state.exercises.find(x=>x.id===id); }
@@ -1283,12 +1320,6 @@
       const c = document.createElement('canvas'); c.className = 'chart'; c.width = 800; c.height = 240; return c;
     }
     const round2 = v => Math.round((v || 0) * 100) / 100;
-    const displayWeight = (lb) => state.settings.units === 'kg' ? round2(lbToKg(lb)) : round2(lb);
-    const parseWeightToLb = (v) => {
-      const n = parseFloat(v || '0');
-      return state.settings.units === 'kg' ? kgToLb(n) : n;
-    };
-
 
 
     // Minimal line chart (single series)
