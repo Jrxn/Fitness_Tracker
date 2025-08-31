@@ -617,6 +617,7 @@
     };
 
     // Load local settings/theme if present
+    // Load local settings/theme if present
     try {
       const saved = localStorage.getItem('wt_state');
       if (saved) {
@@ -630,6 +631,18 @@
       }
     } catch {}
 
+    // === SAVE STATE (hoisted) ===
+    function persist() {
+      localStorage.setItem('wt_state', JSON.stringify({
+        settings: state.settings,
+        exercises: state.exercises,
+        workouts: state.workouts,
+        body_metrics: state.body_metrics,
+        activeWorkoutId: state.activeWorkoutId,
+        lastLoadedFile: state.lastLoadedFile
+      }));
+    }
+
     // === ONE-TIME MIGRATION: store weights in pounds ===
     (function migrateToLbOnce(){
       const FLAG = 'migrated_lb_v1';
@@ -640,27 +653,15 @@
           for (const s of (ex.sets || [])) {
             if (typeof s.weight_lb !== 'number') {
               const kg = Number(s.weight_kg) || 0;
-              s.weight_lb = kgToLb(kg);   // convert old kg to lb
+              s.weight_lb = kgToLb(kg); // convert old kg to lb
             }
-            delete s.weight_kg;           // drop legacy field
+            delete s.weight_kg;         // drop legacy field
           }
         }
       }
       persist();
       localStorage.setItem(FLAG, '1');
     })();
-
-
-    const persist = () => {
-      localStorage.setItem('wt_state', JSON.stringify({
-        settings: state.settings,
-        exercises: state.exercises,
-        workouts: state.workouts,
-        body_metrics: state.body_metrics,
-        activeWorkoutId: state.activeWorkoutId,
-        lastLoadedFile: state.lastLoadedFile
-      }));
-    };
 
     // Theme applier: safe global (doesn't depend on inner-scope vars)
     function applyTheme() {
@@ -947,7 +948,7 @@
 
         card.querySelector('[data-act="addSet"]').addEventListener('click', () => {
           ex.sets = ex.sets || [];
-          ex.sets.push({ ts: nowISO(), weight_lb: 0, reps: 0 }); // store in pounds
+          ex.sets.push({ ts: nowISO(), weight_lb: 0, reps: 0 });
           persist();
           renderActiveWorkout();
         });
